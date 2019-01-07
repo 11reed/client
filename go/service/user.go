@@ -357,6 +357,34 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	mctx := libkb.NewMetaContext(ctx, h.G()).WithLogTag("US")
 	defer mctx.CTraceTimed("ProfileProofSuggestions", func() error { return err })()
 
+	/*
+		upak, _, err := h.G().GetUPAKLoader().LoadV2(
+			libkb.NewLoadUserArgWithContext(ctx).WithPublicKeyOptional().WithSelf(true))
+		if err != nil {
+			return ret, err
+		}
+
+		hasPGP := upak.GetActivePGPKeys(true) != nil
+		upak.Current
+	*/
+
+	user, err := libkb.LoadMe(libkb.NewLoadUserArgWithContext(ctx).WithPublicKeyOptional())
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("could not load logged-in user")
+	}
+
+	user.GetComputedKeyFamily()
+	user.GetComputedKeyInfos()
+	user.GetKeyFamily() // This may be untrusted (?) see libkb/keyfamily.go:206
+
+	// we need to get:
+	// - each social proof
+	// - each parameterized proof
+	// - whether there's zcash & btc
+
 	// xxx todo hide proofs that the user has up, even if they are failing
 	// xxx todo sort them by priority, including server input
 	// xxx todo hide those below the fold
@@ -411,39 +439,45 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 		})
 	}
 
-	weird := []ProofSuggestion{
-		{
+	var weird []ProofSuggestion
+	hasPGP := user.GetActivePGPKeys() != nil
+	if !hasPGP {
+		weird = append(weird, ProofSuggestion{
 			Key:           "pgp",
 			ProfileText:   "Add a PGP key",
 			ProfileIcon:   dummyIcon,
 			PickerText:    "PGP key",
 			PickerSubtext: "",
 			PickerIcon:    dummyIcon,
-		},
-		{
-			Key:           "web",
-			ProfileText:   "Prove your website",
-			ProfileIcon:   dummyIcon,
-			PickerText:    "Your own website",
-			PickerSubtext: "",
-			PickerIcon:    dummyIcon,
-		},
-		{
+		})
+	}
+	weird = append(weird, ProofSuggestion{
+		Key:           "web",
+		ProfileText:   "Prove your website",
+		ProfileIcon:   dummyIcon,
+		PickerText:    "Your own website",
+		PickerSubtext: "",
+		PickerIcon:    dummyIcon,
+	})
+	if !user.IDTable().HasActiveCryptocurrencyFamily(libkb.CryptocurrencyFamilyBitcoin) {
+		weird = append(weird, ProofSuggestion{
 			Key:           "btc",
 			ProfileText:   "Set a Bitcoin address",
 			ProfileIcon:   dummyIcon,
 			PickerText:    "Bitcoin address",
 			PickerSubtext: "",
 			PickerIcon:    dummyIcon,
-		},
-		{
+		})
+	}
+	if !user.IDTable().HasActiveCryptocurrencyFamily(libkb.CryptocurrencyFamilyZcash) {
+		weird = append(weird, ProofSuggestion{
 			Key:           "zcash",
 			ProfileText:   "Set a Zcash address",
 			ProfileIcon:   dummyIcon,
 			PickerText:    "Zcash address",
 			PickerSubtext: "",
 			PickerIcon:    dummyIcon,
-		},
+		})
 	}
 
 	// return h.G().GetProofServices().ProfileProofSuggestions(ctx)
