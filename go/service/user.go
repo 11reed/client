@@ -357,18 +357,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	mctx := libkb.NewMetaContext(ctx, h.G()).WithLogTag("US")
 	defer mctx.CTraceTimed("ProfileProofSuggestions", func() error { return err })()
 
-	/*
-		upak, _, err := h.G().GetUPAKLoader().LoadV2(
-			libkb.NewLoadUserArgWithContext(ctx).WithPublicKeyOptional().WithSelf(true))
-		if err != nil {
-			return ret, err
-		}
-
-		hasPGP := upak.GetActivePGPKeys(true) != nil
-		upak.Current
-	*/
-
-	user, err := libkb.LoadMe(libkb.NewLoadUserArgWithContext(ctx).WithPublicKeyOptional())
+	user, err := libkb.LoadMe(libkb.NewLoadUserArgWithMetaContext(mctx).WithPublicKeyOptional())
 	if err != nil {
 		return err
 	}
@@ -380,10 +369,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	user.GetComputedKeyInfos()
 	user.GetKeyFamily() // This may be untrusted (?) see libkb/keyfamily.go:206
 
-	// we need to get:
-	// - each social proof
-	// - each parameterized proof
-	// - whether there's zcash & btc
+	// xxx add parameterized proofs
 
 	// xxx todo hide proofs that the user has up, even if they are failing
 	// xxx todo sort them by priority, including server input
@@ -393,7 +379,8 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 	// dns, github, hackernews, http, https, reddit, twitter, web.
 	// dns, github, gubble.cloud, gubble.social, hackernews, http, https, reddit, rooter, theqrl.org, twitter, web.
 
-	dummyIcon = "https://keybase.io/images/sigchain/omitted-chainlink.png"
+	const dummyIcon = "https://keybase.io/images/sigchain/omitted-chainlink.png"
+	var suggestions []ProofSuggestion
 	hardSocial := []ProofSuggestion{
 		{
 			Key:           "github",
@@ -438,11 +425,21 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 			PickerIcon:    dummyIcon,
 		})
 	}
-
-	var weird []ProofSuggestion
+	for _, suggestion := range hardSocial {
+		serviceType := h.G().GetProofServices().GetServiceType(suggestion.Key)
+		if serviceType == nil {
+			mctx.CDebugf("missing proof service type: %v", suggestion.Key)
+			continue
+		}
+		if user.IDTable().GetActiveProofsFor(serviceType) != nil {
+			// The user has an active proof of this type
+			continue
+		}
+		suggestions = append(suggestions, suggestion)
+	}
 	hasPGP := user.GetActivePGPKeys() != nil
 	if !hasPGP {
-		weird = append(weird, ProofSuggestion{
+		suggestions = append(suggestions, ProofSuggestion{
 			Key:           "pgp",
 			ProfileText:   "Add a PGP key",
 			ProfileIcon:   dummyIcon,
@@ -451,7 +448,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 			PickerIcon:    dummyIcon,
 		})
 	}
-	weird = append(weird, ProofSuggestion{
+	suggestions = append(suggestions, ProofSuggestion{
 		Key:           "web",
 		ProfileText:   "Prove your website",
 		ProfileIcon:   dummyIcon,
@@ -460,7 +457,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 		PickerIcon:    dummyIcon,
 	})
 	if !user.IDTable().HasActiveCryptocurrencyFamily(libkb.CryptocurrencyFamilyBitcoin) {
-		weird = append(weird, ProofSuggestion{
+		suggestions = append(suggestions, ProofSuggestion{
 			Key:           "btc",
 			ProfileText:   "Set a Bitcoin address",
 			ProfileIcon:   dummyIcon,
@@ -470,7 +467,7 @@ func (h *UserHandler) ProfileProofSuggestions(ctx context.Context, sessionID int
 		})
 	}
 	if !user.IDTable().HasActiveCryptocurrencyFamily(libkb.CryptocurrencyFamilyZcash) {
-		weird = append(weird, ProofSuggestion{
+		suggestions = append(suggestions, ProofSuggestion{
 			Key:           "zcash",
 			ProfileText:   "Set a Zcash address",
 			ProfileIcon:   dummyIcon,

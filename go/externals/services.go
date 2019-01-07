@@ -73,7 +73,7 @@ func (p *staticProofServices) ProfileProofSuggestions(ctx context.Context) (ret 
 type proofServices struct {
 	sync.Mutex
 	libkb.Contextified
-	externalServices map[string]libkb.ServiceType
+	externalServices map[string]libkb.ServiceType // map keys are ServiceType.Key()
 	loaded           bool
 }
 
