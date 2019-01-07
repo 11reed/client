@@ -60,6 +60,7 @@ const mapDispatchToProps = (dispatch: (a: any) => void) => ({
   onBootstrap: () => {
     dispatch(SettingsGen.createLoadSettings())
     dispatch(SettingsGen.createLoadRememberPassphrase())
+    dispatch(SettingsGen.createLoadHasRandomPw())
   },
   onChangeEmail: () => dispatch(RouteTreeGen.createNavigateAppend({path: ['changeEmail']})),
   onChangePassphrase: () => dispatch(RouteTreeGen.createNavigateAppend({path: ['changePassphrase']})),

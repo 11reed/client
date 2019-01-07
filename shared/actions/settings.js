@@ -414,6 +414,11 @@ const unfurlSettingsSaved = (state, action) =>
       })
     )
 
+const loadHasRandomPW = () =>
+  RPCTypes.userLoadHasRandomPwRpcPromise().then(randomPW =>
+    SettingsGen.createLoadedHasRandomPw({randomPW})
+  )
+
 function* settingsSaga(): Saga.SagaGenerator<any, any> {
   yield* Saga.chainAction<SettingsGen.InvitesReclaimPayload>(SettingsGen.invitesReclaim, reclaimInvite)
   yield* Saga.chainAction<SettingsGen.InvitesRefreshPayload>(SettingsGen.invitesRefresh, refreshInvites)
@@ -469,6 +474,10 @@ function* settingsSaga(): Saga.SagaGenerator<any, any> {
   yield* Saga.chainAction<SettingsGen.UnfurlSettingsSavedPayload>(
     SettingsGen.unfurlSettingsSaved,
     unfurlSettingsSaved
+  )
+  yield* Saga.chainAction<SettingsGen.LoadHasRandomPwPayload>(
+    SettingsGen.loadHasRandomPw,
+    loadHasRandomPW
   )
 }
 
